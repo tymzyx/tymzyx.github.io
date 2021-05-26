@@ -1,0 +1,61 @@
+---
+layout: post
+title:  "学习随笔"
+date:   2021-05-26 09:03:36
+categories: Javascript
+---
+
+## 2021-05-26
+
+#### call，applay模拟实现
+
+```javascript
+Function.proptotype.myCall = function (context, ...args) {
+	if (!context) {
+        context = window;
+    }
+    context._fn = this;
+    const result = context._fn(...args);
+    delete context._fn;
+    return result;
+};
+
+Function.prototype.myApply = function (context, arr) {
+    if (!context) {
+        context = window;
+    }
+    context._fn = this;
+    const result = Array.isArray(arr) ? context._fn(...arr) : context._fn();
+    delete context._fn;
+    return result;
+};
+```
+
+#### bind模拟实现
+
+```javascript
+Function.prototype.myBind = function (context, ...args) {
+    context = context || window;
+    const _this = this;
+    const result = function(...innerArgs) {
+        if (this instanceof result) {
+            return new _this(...args, ...innerArgs);
+        }
+        return _this.apply(context, [...args, ...innerArgs]);
+    };
+    return result;
+}
+```
+
+#### new模拟实现
+
+```javascript
+const myNew = function () {
+    const obj = {};
+    const constructor = [].shift.call(arguments);
+    obj.__prop__ = constructor.prototype;
+    const result = constructor.call(obj, ...arguments);
+    return result instanceof Object ? result : obj;
+};
+```
+
