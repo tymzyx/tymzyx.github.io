@@ -5,6 +5,8 @@ date:   2021-05-26 09:03:36
 categories: Javascript
 ---
 
+前端学习随笔
+
 ## 2021-05-26
 
 #### call，applay模拟实现
@@ -57,5 +59,344 @@ const myNew = function () {
     const result = constructor.call(obj, ...arguments);
     return result instanceof Object ? result : obj;
 };
+```
+
+
+
+## 2021-05-27
+
+#### 防抖实现
+
+```javascript
+// 初版
+const myDebounce = function (func, delay) {
+    let running;
+    return function () {
+        clearTimeout(running);
+        running = setTimeout(func, delay);
+    };
+};
+// this指向和传参
+const myDebounce = function (func, delay) {
+    let running;
+    return function () {
+        const _this = this;
+        const args = arguments;
+        clearTimeout(running);
+        running = setTimeout(function () { func.call(_this, ...args); }, delay);
+    };
+};
+// 允许控制是否立即执行以及存在返回值
+const myDebounce = function (func, delay, immediate) {
+    let running, result;
+    return function () {
+        const _this = this;
+        const args = arguments;
+        
+        if (running) clearTimeout(running);
+        
+        if (immediate) {
+        	const runNow = !running;
+            running = setTimout(function() {
+                running = null;
+            }, delay);
+            if (runNow) result = func.call(_this, ...args);
+        } else {
+            running = setTimeout(function () { func.call(_this, ...args); }, delay);
+        }
+        return result;
+    };
+};
+// 允许取消
+const myDebounce = function (func, delay, immediate) {
+    let running, result;
+    const debounce = function () {
+        const _this = this;
+        const args = arguments;
+        
+        if (running) clearTimeout(running);
+        
+        if (immediate) {
+        	const runNow = !running;
+            running = setTimout(function() {
+                running = null;
+            }, delay);
+            if (runNow) result = func.call(_this, ...args);
+        } else {
+            running = setTimeout(function () { func.call(_this, ...args); }, delay);
+        }
+        return result;
+    };
+    
+    debounce.cancel = function () {
+        clearTimeout(running);
+        running = null;
+    };
+    
+    return debounce;
+};
+```
+
+#### 节流实现
+
+```javascript
+/**
+* 1、时间戳会立刻执行，定时器会在 n 秒后第一次执行
+* 2、时间戳停止触发后没有办法再执行事件，定时器停止触发后依然会再执行一次事件
+*/
+// 定时器方式初版
+const myThrottle = function (func, delay) => {
+    let running;
+    return function () {
+        const _this = this;
+        const args = arguments;
+        if (!running) {
+        	running = setTimeout(function () {
+                running = null;
+                func.apply(_this, args);
+            }, delay); 
+        }
+    };
+};
+// 时间戳方式
+const myThrottle = function (func, delay) => {
+    let previous = 0;
+    return function () {
+        const _this = this;
+        const args = arguments;
+        
+        const now = +new Date();
+        if (now - previous > delay) {
+            func.apply(_this, args);
+            previous = now;
+        }
+    };
+};
+// 时间戳与定时器结合
+const myThrottle = function (func, delay) => {
+    let previous = 0, running, _this, args;
+    
+    const later = function () {
+    	previous = +new Date();
+        running = null;
+        func.apply(_this, args);
+    };
+    
+    const throttle = function () {
+        _this = this;
+        args = arguments;
+        
+        const now = +new Date();
+        // 下次触发func剩余的时间
+        const remaining = delay - (now - previous);
+        
+        // 如果没有剩余的时间了或者系统时间被修改
+        if (remaining < 0 || remaining > delay) {
+            if (running) {
+                clearTimeout(running);
+                running = null;
+            }
+            previous = now;
+            func.apply(_this, args);
+        } else if (!running) {
+        	running = setTimeout(later, remaining);	           
+        }
+    };
+    
+    return throttle;
+};
+/** 
+* 允许控制执行策略
+* —— 无头有尾/有头无尾/有头有尾
+* —— options: { leading: false 表示禁用第一次执行, trailing: false 表示禁用停止触发的回调 }
+*/
+const myThrottle = function (func, delay, options) => {
+    let previous = 0, running, _this, args;
+    const { leading, trailing } = options || {};
+   
+    const later = function () {
+    	previous = leading === false ? 0 : +new Date();
+        running = null;
+        func.apply(_this, args);
+    };
+    
+    const throttle = function () {
+        _this = this;
+        args = arguments;
+        
+        const now = +new Date();
+        if (!previous && leading === false) previous = now;
+        
+        // 下次触发func剩余的时间
+        const remaining = delay - (now - previous);
+        
+        // 如果没有剩余的时间了或者系统时间被修改
+        if (remaining < 0 || remaining > delay) {
+            if (running) {
+                clearTimeout(running);
+                running = null;
+            }
+            previous = now;
+            func.apply(_this, args);
+        } else if (!running && trailing !== false) {
+        	running = setTimeout(later, remaining);	           
+        }
+    };
+    
+    throttled.cancel = function() {
+        clearTimeout(running);
+        previous = 0;
+        running = null;
+	};
+    
+    return throttle;
+};
+```
+
+
+
+## 2021-05-28
+
+#### 数组去重
+
+```javascript
+// 思考实现
+const unique = arr => {
+    const result = [];
+    const uniqueObj = {};
+    for (let i = arr.length - 1; i >= 0; i--) {
+        // '1'和1会被去重，改进可以将对象的键由arr[i]改为(typeof arr[i]) + JSON.stringify(arr[i])
+        if (!uniqueObj.hasOwnProperty(arr[i])) {
+            uniqueObj[arr[i]] = true;
+            result.push(arr[i]);
+        }
+    }
+    return result;
+};
+// 初版实现
+// —— 嵌套循环
+const unique = arr => {
+    const result = [];
+    for (let i = 0, arrLength = arr.length; i < arrLength; i++) {
+        const resultLength = result.length;
+        let j = 0;
+        white (j < resultLength) {
+            if (arr[i] === result[j]) {
+                break;
+            }
+            j++;
+        }
+        
+        if (j === resultLength) {
+            result.push(arr[i]);
+        }
+    }
+    return result;
+};
+// indexOf简化嵌套循环
+const unique = arr => {
+    const result = [];
+    for (let i = 0, arrLength = arr.length; i < arrLength; i++) {
+        if (result.indexOf(arr[i]) === -1) {
+            result.push(arr[i]);
+        }
+    }
+    return result;
+};
+// 排序后去重
+// —— 利用sort方法排序后只需判断当前元素与上一个元素是否相同，相同就说明重复，不相同就添加进result
+const unique = arr => {
+    const result = [];
+    const sortArr = [...arr].sort();
+    for (let i = 0, arrLength = arr.length; i < arrLength; i++) {
+        // 如果是第一个元素或者相邻的元素不相同
+        if (!i || sortArr[i] !== sortArr[i - 1]) {
+            result.push(sortArr[i]);
+        }
+    }
+    return result;
+};
+/** 
+* 综合优化
+* arr：表示要去重的数组，必填
+* isSorted：表示函数传入的数组是否已排过序，如果为 true，采用更快的方法进行去重
+* iteratee：传入一个函数，可以对每个元素进行重新的计算，然后根据处理的结果进行去重
+*/
+const unique = (arr, isSorted, iteratee) => {
+    const result = [];
+    let last = [];
+    for (let i = 0, arrLength = arr.length; i < arrLength; i++) {
+        const value = arr[i];
+        const computed = iteratee ? iteratee(value, i, arr) : value;
+        if (isSorted) {
+            if (!i || computed !== last) {
+                result.push(value);
+            }
+            last = computed;
+        } else if (iteratee) {
+            if (last.indexOf(computed) === -1) {
+                result.push(value);
+                last.push(computed);
+            }
+        } else {
+            if (result.indexOf(value) === -1) {
+                result.push(value);
+            }
+        }
+    }
+    return result;
+};
+// 利用filter方法简化外层循环
+const unique = arr => arr.filter((item, index, array) => array.indexOf(item) === index);
+const unique = arr => [...arr].sort().filter((item, index, array) => !index || item !== array[index - 1]);
+// ES6中Set和Map
+const unique = arr => Array.from(new Set(arr));
+const unique = arr => {
+    const seen = new Map();
+    return arr.filter((a) => !seen.has(a) && seen.set(a, 1));
+};
+```
+
+#### 深浅拷贝
+
+```javascript
+// 浅拷贝
+// 思考实现
+// 数组的话可以使用arr.concat(),arr.slice()
+// 对象（包括数组）的话可以使用解构[...arr]/{...obj}
+
+// 深拷贝
+// 思考实现
+// 可以直接使用JSON.parse(JSON.stringify(obj))
+// 该方法无法序列化undefined、函数、symbol等类型值
+
+// 深拷贝实现
+const deepCopy = obj => {
+    if (!obj || typeof obj !== 'object') {
+        return obj;
+    }
+    const nextObj = Array.isArray(obj) ? [] : {};
+    Reflect.ownKeys(obj).forEach(key => {
+    	nextObj[key] = typeof obj[key] !== 'object' ? obj[key] : deepCopy(obj[key]);   
+    });
+    return nextObj;
+};
+```
+
+#### 类型判断
+
+```javascript
+// 思考实现
+// 返回值：number/string/boolean/undefined/null/symbol/bigint/object/array/function/regexp/date/error/promise/set/map
+const getType = (variable) => {
+    const typeStr = Object.prototype.toString.call(variable);
+    return typeStr.replace(/[\[|\]]/g, '').split(' ')[1].toLowerCase();
+};
+```
+
+#### 实现promise
+
+```javascript
+
 ```
 
